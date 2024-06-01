@@ -175,4 +175,86 @@ const chainId = network.config.chainId!;
                   assert.equal(listing.seller, ZeroAddress);
               });
           });
+          describe("updateListing", () => {
+              it("reverts when not listed", async () => {
+                  await expect(
+                      nftMarketplace.updateListing(nftAddress, TOKEN_ID, PRICE)
+                  )
+                      .to.be.revertedWithCustomError(
+                          nftMarketplace,
+                          "NftMarketplace__NotListed"
+                      )
+                      .withArgs(nftAddress, TOKEN_ID);
+              });
+              it("reverts when not owner", async () => {
+                  const userNftMarketplace = nftMarketplace.connect(user);
+                  await nftMarketplace.listItem(nftAddress, TOKEN_ID, PRICE);
+                  await expect(
+                      userNftMarketplace.updateListing(
+                          nftAddress,
+                          TOKEN_ID,
+                          PRICE
+                      )
+                  ).to.be.revertedWithCustomError(
+                      nftMarketplace,
+                      "NftMarketplace__NotOwner"
+                  );
+              });
+              it("updates listing and emits event", async () => {
+                  const newPrice = parseEther("2");
+                  await nftMarketplace.listItem(nftAddress, TOKEN_ID, PRICE);
+                  await expect(
+                      nftMarketplace.updateListing(
+                          nftAddress,
+                          TOKEN_ID,
+                          newPrice
+                      )
+                  )
+                      .to.emit(nftMarketplace, "ItemListed")
+                      .withArgs(
+                          deployer.address,
+                          nftAddress,
+                          TOKEN_ID,
+                          newPrice
+                      );
+              });
+          });
+          describe("withdrawProceeds", () => {
+              it("reverts when no proceeds available", async () => {
+                  await expect(
+                      nftMarketplace.withdrawProceeds()
+                  ).to.be.revertedWithCustomError(
+                      nftMarketplace,
+                      "NftMarketplace__NoProceeds"
+                  );
+              });
+              it("updates and send proceeds", async () => {
+                  const userNftMarketplace = nftMarketplace.connect(user);
+                  await nftMarketplace.listItem(nftAddress, TOKEN_ID, PRICE);
+                  await userNftMarketplace.buyItem(nftAddress, TOKEN_ID, {
+                      value: PRICE,
+                  });
+                  const deployerProceedsBefore =
+                      await nftMarketplace.getProceeds(deployer.address);
+                  const deployerBalanceBefore =
+                      await ethers.provider.getBalance(deployer.address);
+                  const txResponse = await nftMarketplace.withdrawProceeds();
+                  const txReceipt = await txResponse.wait(1);
+                  const deployerProceedsAfter =
+                      await nftMarketplace.getProceeds(deployer.address);
+                  const deployerBalanceAfter = await ethers.provider.getBalance(
+                      deployer.address
+                  );
+                  const gasCost = txReceipt?.gasUsed! * txReceipt?.gasPrice!;
+                  assert.equal(deployerProceedsAfter.toString(), "0");
+                  assert.equal(
+                      deployerProceedsBefore.toString(),
+                      PRICE.toString()
+                  );
+                  assert.equal(
+                      deployerBalanceAfter + gasCost,
+                      deployerBalanceBefore + deployerProceedsBefore
+                  );
+              });
+          });
       });
