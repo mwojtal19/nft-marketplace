@@ -8,12 +8,19 @@ import {
 import { getAccount, readContract } from "@wagmi/core";
 import { formatUnits } from "ethers";
 import { FC, useEffect, useState } from "react";
-import { useAccount } from "wagmi";
+import {
+    useAccount,
+    useWaitForTransactionReceipt,
+    useWriteContract,
+} from "wagmi";
 import { ListedNFT } from "../../app/page";
 import { contracts } from "../../contracts/contract";
 import { wagmiConfig } from "../../services/web3/wagmiConfig";
 import { trimAddress } from "../../utils/common";
 import { UpdateListingModal } from "../modals/UpdateListingModal";
+import { ErrorNotification } from "../notifications/ErrorNotification";
+import { PendingNotification } from "../notifications/PendingNotification";
+import { SuccessNotification } from "../notifications/SuccessNotification";
 
 export const NFTCard: FC<ListedNFT> = ({
     seller,
@@ -30,6 +37,25 @@ export const NFTCard: FC<ListedNFT> = ({
     const [openModal, setOpenModal] = useState<boolean>(false);
     const nftAbi = contracts?.[chainId!]?.["BasicNft"]?.abi!;
     const nftContractAddress = contracts?.[chainId!]?.["BasicNft"].address!;
+    const marketplaceAddress =
+        contracts?.[chainId!]?.["NftMarketplace"]?.address!;
+    const marketplaceAbi = contracts?.[chainId!]?.["NftMarketplace"]?.abi!;
+    const {
+        data: hash,
+        writeContract,
+        isSuccess,
+        isError,
+        error,
+    } = useWriteContract();
+    const { isLoading: isConfirming, isSuccess: isConfirmed } =
+        useWaitForTransactionReceipt({
+            hash,
+        });
+    const [successNotification, setSuccessNotification] =
+        useState<boolean>(false);
+    const [errorNotification, setErrorNotification] = useState<boolean>(false);
+    const [pendingNotification, setPendingNotification] =
+        useState<boolean>(false);
 
     const getTokenURI = async () => {
         return (await readContract(wagmiConfig, {
@@ -59,7 +85,18 @@ export const NFTCard: FC<ListedNFT> = ({
     };
 
     const handleCardClick = (modalOpen: boolean) => {
-        setOpenModal(modalOpen);
+        if (!isConnected) return;
+        if (seller === address) {
+            setOpenModal(modalOpen);
+        } else {
+            writeContract({
+                address: marketplaceAddress,
+                abi: marketplaceAbi,
+                functionName: "buyItem",
+                args: [nftAddress, tokenId],
+                value: price,
+            });
+        }
     };
 
     useEffect(() => {
@@ -68,7 +105,14 @@ export const NFTCard: FC<ListedNFT> = ({
             updateUI();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isConnected, address]);
+    }, [isConnected, address, isSuccess]);
+
+    useEffect(() => {
+        setSuccessNotification(isConfirmed);
+        setPendingNotification(isConfirming);
+        setErrorNotification(isError);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isConfirmed, isConfirming, isError]);
 
     return (
         <>
@@ -117,6 +161,19 @@ export const NFTCard: FC<ListedNFT> = ({
                 tokenId={tokenId}
                 currentPrice={price}
                 onClick={() => handleCardClick(false)}
+            />
+            <SuccessNotification
+                open={successNotification}
+                handleClose={() => setSuccessNotification(false)}
+            />
+            <ErrorNotification
+                error={error}
+                open={errorNotification}
+                handleClose={() => setErrorNotification(false)}
+            />
+            <PendingNotification
+                open={pendingNotification}
+                handleClose={() => setPendingNotification(false)}
             />
         </>
     );

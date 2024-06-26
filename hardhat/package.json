@@ -30,7 +30,7 @@
     },
     "scripts": {
         "chain": "hardhat node --no-deploy",
-        "deploy": "hardhat deploy",
+        "deploy": "hardhat deploy --network localhost",
         "mint": "hardhat run ./scripts/mint-and-list.ts --network localhost"
     }
 }

@@ -1,6 +1,13 @@
-import { Box, Modal, TextField, Typography } from "@mui/material";
-import { formatUnits } from "ethers";
-import { FC, useState } from "react";
+import { Box, Button, Modal, TextField, Typography } from "@mui/material";
+import { getAccount } from "@wagmi/core";
+import { formatUnits, parseUnits } from "ethers";
+import { FC, useEffect, useState } from "react";
+import { useWaitForTransactionReceipt, useWriteContract } from "wagmi";
+import { contracts } from "../../contracts/contract";
+import { wagmiConfig } from "../../services/web3/wagmiConfig";
+import { ErrorNotification } from "../notifications/ErrorNotification";
+import { PendingNotification } from "../notifications/PendingNotification";
+import { SuccessNotification } from "../notifications/SuccessNotification";
 
 export type UpdateListingProps = {
     open: boolean;
@@ -32,27 +39,69 @@ export const UpdateListingModal: FC<UpdateListingProps> = ({
     const [price, setPrice] = useState<number>(
         Number(formatUnits(currentPrice, "ether"))
     );
+    const [successNotification, setSuccessNotification] =
+        useState<boolean>(false);
+    const [errorNotification, setErrorNotification] = useState<boolean>(false);
+    const [pendingNotification, setPendingNotification] =
+        useState<boolean>(false);
+    const { chainId } = getAccount(wagmiConfig);
+    const {
+        data: hash,
+        writeContract,
+        isSuccess,
+        isPending,
+        isError,
+        error,
+    } = useWriteContract();
+    const { isLoading: isConfirming, isSuccess: isConfirmed } =
+        useWaitForTransactionReceipt({
+            hash,
+        });
+    const marketplaceAddress =
+        contracts?.[chainId!]?.["NftMarketplace"]?.address!;
+    const marketplaceAbi = contracts?.[chainId!]?.["NftMarketplace"]?.abi!;
 
     const handlePriceChange = (newPrice: string) => {
         setPrice(Number(newPrice));
     };
+
+    const handleUpdatePrice = () => {
+        writeContract({
+            address: marketplaceAddress,
+            abi: marketplaceAbi,
+            functionName: "updateListing",
+            args: [nftAddress, tokenId, parseUnits(price.toString(), "ether")],
+        });
+    };
+
+    useEffect(() => {
+        setSuccessNotification(isConfirmed);
+        setPendingNotification(isConfirming);
+        setErrorNotification(isError);
+        if (isConfirmed || isError || isConfirming) {
+            onClick();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isConfirmed, isConfirming, isError]);
+
     return (
-        <Modal
-            open={open}
-            onClose={onClick}
-            aria-labelledby="update-listing-modal"
-            aria-describedby="update-listing-modal"
-        >
-            <Box sx={style}>
-                <Typography
-                    gutterBottom
-                    id="modal-modal-title"
-                    variant="h6"
-                    component="h2"
-                >
-                    Update listing
-                </Typography>
-                <form>
+        <>
+            <Modal
+                open={open}
+                onClose={onClick}
+                aria-labelledby="update-listing-modal"
+                aria-describedby="update-listing-modal"
+            >
+                <Box sx={style}>
+                    <Typography
+                        gutterBottom
+                        id="modal-modal-title"
+                        variant="h6"
+                        component="h2"
+                    >
+                        Update listing
+                    </Typography>
+
                     <TextField
                         sx={{
                             "& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button":
@@ -70,8 +119,33 @@ export const UpdateListingModal: FC<UpdateListingProps> = ({
                         type="number"
                         onChange={(e) => handlePriceChange(e.target.value)}
                     />
-                </form>
-            </Box>
-        </Modal>
+                    <Button
+                        disabled={isPending}
+                        sx={{ marginTop: "1rem" }}
+                        variant="contained"
+                        onClick={handleUpdatePrice}
+                    >
+                        Update price
+                    </Button>
+
+                    {isSuccess ?? (
+                        <Typography>Transaction hash: {hash}</Typography>
+                    )}
+                </Box>
+            </Modal>
+            <SuccessNotification
+                open={successNotification}
+                handleClose={() => setSuccessNotification(false)}
+            />
+            <ErrorNotification
+                error={error}
+                open={errorNotification}
+                handleClose={() => setErrorNotification(false)}
+            />
+            <PendingNotification
+                open={pendingNotification}
+                handleClose={() => setPendingNotification(false)}
+            />
+        </>
     );
 };
