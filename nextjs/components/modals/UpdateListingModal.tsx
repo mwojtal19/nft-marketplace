@@ -1,10 +1,12 @@
 import { Box, Button, Modal, TextField, Typography } from "@mui/material";
-import { getAccount } from "@wagmi/core";
 import { formatUnits, parseUnits } from "ethers";
-import { FC, useEffect, useState } from "react";
-import { useWaitForTransactionReceipt, useWriteContract } from "wagmi";
+import { FC, useState } from "react";
+import {
+    useAccount,
+    useWaitForTransactionReceipt,
+    useWriteContract,
+} from "wagmi";
 import { contracts } from "../../contracts/contract";
-import { wagmiConfig } from "../../services/web3/wagmiConfig";
 import { ErrorNotification } from "../notifications/ErrorNotification";
 import { PendingNotification } from "../notifications/PendingNotification";
 import { SuccessNotification } from "../notifications/SuccessNotification";
@@ -44,7 +46,7 @@ export const UpdateListingModal: FC<UpdateListingProps> = ({
     const [errorNotification, setErrorNotification] = useState<boolean>(false);
     const [pendingNotification, setPendingNotification] =
         useState<boolean>(false);
-    const { chainId } = getAccount(wagmiConfig);
+    const { chainId } = useAccount();
     const {
         data: hash,
         writeContract,
@@ -52,7 +54,22 @@ export const UpdateListingModal: FC<UpdateListingProps> = ({
         isPending,
         isError,
         error,
-    } = useWriteContract();
+    } = useWriteContract({
+        mutation: {
+            onSuccess: () => {
+                setSuccessNotification(isConfirmed);
+                onClick();
+            },
+            onError: () => {
+                setErrorNotification(isError);
+                onClick();
+            },
+            onMutate: () => {
+                setPendingNotification(isConfirming);
+                onClick();
+            },
+        },
+    });
     const { isLoading: isConfirming, isSuccess: isConfirmed } =
         useWaitForTransactionReceipt({
             hash,
@@ -73,16 +90,6 @@ export const UpdateListingModal: FC<UpdateListingProps> = ({
             args: [nftAddress, tokenId, parseUnits(price.toString(), "ether")],
         });
     };
-
-    useEffect(() => {
-        setSuccessNotification(isConfirmed);
-        setPendingNotification(isConfirming);
-        setErrorNotification(isError);
-        if (isConfirmed || isError || isConfirming) {
-            onClick();
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isConfirmed, isConfirming, isError]);
 
     return (
         <>

@@ -18,7 +18,7 @@ export const ErrorNotification: FC<NotificationProps> = ({
             open={open}
             autoHideDuration={6000}
             onClose={handleClose}
-            anchorOrigin={{ vertical: "top", horizontal: "right" }}
+            anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         >
             <Alert
                 onClose={handleClose}

@@ -5,7 +5,7 @@ import {
     CardMedia,
     Typography,
 } from "@mui/material";
-import { getAccount, readContract } from "@wagmi/core";
+import { readContract } from "@wagmi/core";
 import { formatUnits } from "ethers";
 import { FC, useEffect, useState } from "react";
 import {
@@ -19,7 +19,6 @@ import { wagmiConfig } from "../../services/web3/wagmiConfig";
 import { trimAddress } from "../../utils/common";
 import { UpdateListingModal } from "../modals/UpdateListingModal";
 import { ErrorNotification } from "../notifications/ErrorNotification";
-import { PendingNotification } from "../notifications/PendingNotification";
 import { SuccessNotification } from "../notifications/SuccessNotification";
 
 export const NFTCard: FC<ListedNFT> = ({
@@ -28,8 +27,7 @@ export const NFTCard: FC<ListedNFT> = ({
     tokenId,
     nftAddress,
 }) => {
-    const { chainId, address } = getAccount(wagmiConfig);
-    const { isConnected } = useAccount();
+    const { chainId, address, isConnected } = useAccount();
     const [imageURI, setImageURI] = useState<string>("");
     const [tokenName, setTokenName] = useState<string>("");
     const [tokenDescription, setTokenDescription] = useState<string>("");
@@ -46,7 +44,16 @@ export const NFTCard: FC<ListedNFT> = ({
         isSuccess,
         isError,
         error,
-    } = useWriteContract();
+    } = useWriteContract({
+        mutation: {
+            onSuccess: () => {
+                setSuccessNotification(isConfirmed);
+            },
+            onError: () => {
+                setErrorNotification(isError);
+            },
+        },
+    });
     const { isLoading: isConfirming, isSuccess: isConfirmed } =
         useWaitForTransactionReceipt({
             hash,
@@ -54,8 +61,6 @@ export const NFTCard: FC<ListedNFT> = ({
     const [successNotification, setSuccessNotification] =
         useState<boolean>(false);
     const [errorNotification, setErrorNotification] = useState<boolean>(false);
-    const [pendingNotification, setPendingNotification] =
-        useState<boolean>(false);
 
     const getTokenURI = async () => {
         return (await readContract(wagmiConfig, {
@@ -106,13 +111,6 @@ export const NFTCard: FC<ListedNFT> = ({
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isConnected, address, isSuccess]);
-
-    useEffect(() => {
-        setSuccessNotification(isConfirmed);
-        setPendingNotification(isConfirming);
-        setErrorNotification(isError);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isConfirmed, isConfirming, isError]);
 
     return (
         <>
@@ -170,10 +168,6 @@ export const NFTCard: FC<ListedNFT> = ({
                 error={error}
                 open={errorNotification}
                 handleClose={() => setErrorNotification(false)}
-            />
-            <PendingNotification
-                open={pendingNotification}
-                handleClose={() => setPendingNotification(false)}
             />
         </>
     );

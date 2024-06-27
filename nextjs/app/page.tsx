@@ -1,7 +1,8 @@
 "use client";
 import { Grid } from "@mui/material";
-import { getAccount, watchContractEvent } from "@wagmi/core";
+import { watchContractEvent } from "@wagmi/core";
 import { useState } from "react";
+import { useAccount } from "wagmi";
 import { NFTCard } from "../components/nft-card/NFTCard";
 import { contracts } from "../contracts/contract";
 import { wagmiConfig } from "../services/web3/wagmiConfig";
@@ -22,16 +23,18 @@ export type BoughtNFT = {
 
 function Page() {
     const [listedNFTs, setListedNFTs] = useState<ListedNFT[]>([]);
-    const { chainId } = getAccount(wagmiConfig);
+    const { chainId } = useAccount();
 
-    const abi = contracts?.[chainId!]?.["NftMarketplace"]?.abi!;
-    const contractAddress = contracts?.[chainId!]?.["NftMarketplace"].address!;
+    const marketplaceAddress =
+        contracts?.[chainId!]?.["NftMarketplace"]?.address!;
+    const marketplaceAbi = contracts?.[chainId!]?.["NftMarketplace"]?.abi!;
 
     watchContractEvent(wagmiConfig, {
-        address: contractAddress,
-        abi: abi,
+        address: marketplaceAddress,
+        abi: marketplaceAbi,
         eventName: "ItemListed",
         onLogs(logs: any) {
+            if (!marketplaceAbi) return;
             let newNFTs = [...listedNFTs];
             logs.forEach((x: { args: ListedNFT }) => {
                 const nftIndex = newNFTs.findIndex(
@@ -44,13 +47,13 @@ function Page() {
                     newNFTs.push(x.args);
                 }
             });
-            setListedNFTs(newNFTs);
+            setListedNFTs([...newNFTs]);
         },
     });
 
     watchContractEvent(wagmiConfig, {
-        address: contractAddress,
-        abi: abi,
+        address: marketplaceAddress,
+        abi: marketplaceAbi,
         eventName: "ItemBought",
         onLogs(logs: any) {
             const nfts = [...listedNFTs];
@@ -62,7 +65,7 @@ function Page() {
                     nfts.splice(nftIndex, 1);
                 }
             });
-            setListedNFTs(nfts);
+            setListedNFTs([...nfts]);
         },
     });
 

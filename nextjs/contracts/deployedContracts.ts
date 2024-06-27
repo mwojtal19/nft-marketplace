@@ -3,7 +3,7 @@ import { GenericContractsDeclaration } from "../utils/contract";
 const deployedContracts = {
   31337: {
     BasicNft: {
-      address: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+      address: "0xCD8a1C3ba11CF5ECfa6267617243239504a98d90",
       abi: [
         {
           inputs: [],
@@ -492,7 +492,7 @@ const deployedContracts = {
       ],
     },
     NftMarketplace: {
-      address: "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+      address: "0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575",
       abi: [
         {
           inputs: [
