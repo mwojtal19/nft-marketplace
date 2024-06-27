@@ -1,8 +1,7 @@
 "use client";
 import { Grid } from "@mui/material";
 import { getAccount, watchContractEvent } from "@wagmi/core";
-import { useEffect, useState } from "react";
-import { useAccount } from "wagmi";
+import { useState } from "react";
 import { NFTCard } from "../components/nft-card/NFTCard";
 import { contracts } from "../contracts/contract";
 import { wagmiConfig } from "../services/web3/wagmiConfig";
@@ -23,56 +22,48 @@ export type BoughtNFT = {
 
 function Page() {
     const [listedNFTs, setListedNFTs] = useState<ListedNFT[]>([]);
-    const { isConnected, address } = useAccount();
     const { chainId } = getAccount(wagmiConfig);
 
     const abi = contracts?.[chainId!]?.["NftMarketplace"]?.abi!;
     const contractAddress = contracts?.[chainId!]?.["NftMarketplace"].address!;
 
-    const watchListedNftsEvents = watchContractEvent(wagmiConfig, {
+    watchContractEvent(wagmiConfig, {
         address: contractAddress,
         abi: abi,
         eventName: "ItemListed",
         onLogs(logs: any) {
+            let newNFTs = [...listedNFTs];
             logs.forEach((x: { args: ListedNFT }) => {
-                let newNFTs: ListedNFT[] = [];
-                const nftIndex = listedNFTs.findIndex(
+                const nftIndex = newNFTs.findIndex(
                     (nft) => nft.tokenId === x.args.tokenId
                 );
                 if (nftIndex !== -1) {
-                    listedNFTs[nftIndex].price = x.args.price;
-                    listedNFTs[nftIndex].seller = x.args.seller;
+                    newNFTs[nftIndex].price = x.args.price;
+                    newNFTs[nftIndex].seller = x.args.seller;
                 } else {
                     newNFTs.push(x.args);
                 }
-                setListedNFTs([...listedNFTs, ...newNFTs]);
             });
+            setListedNFTs(newNFTs);
         },
     });
 
-    const watchBoughtNftsEvents = watchContractEvent(wagmiConfig, {
+    watchContractEvent(wagmiConfig, {
         address: contractAddress,
         abi: abi,
         eventName: "ItemBought",
         onLogs(logs: any) {
+            const nfts = [...listedNFTs];
             logs.forEach((x: { args: BoughtNFT }) => {
-                const nfts = [...listedNFTs];
-                const nftIndex = listedNFTs.findIndex(
+                const nftIndex = nfts.findIndex(
                     (nft) => nft.tokenId === x.args.tokenId
                 );
                 if (nftIndex !== -1) {
                     nfts.splice(nftIndex, 1);
                 }
-                setListedNFTs(nfts);
             });
+            setListedNFTs(nfts);
         },
-    });
-    console.log(listedNFTs);
-
-    useEffect(() => {
-        watchListedNftsEvents();
-        watchBoughtNftsEvents();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     });
 
     return (

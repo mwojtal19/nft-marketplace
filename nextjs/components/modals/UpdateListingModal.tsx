@@ -103,17 +103,8 @@ export const UpdateListingModal: FC<UpdateListingProps> = ({
                     </Typography>
 
                     <TextField
-                        sx={{
-                            "& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button":
-                                {
-                                    display: "none",
-                                },
-                            "& input[type=number]": {
-                                MozAppearance: "textfield",
-                            },
-                        }}
                         id="outlined-basic"
-                        label="Price"
+                        label="Price (ETH)"
                         variant="outlined"
                         value={price}
                         type="number"
